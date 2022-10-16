@@ -78,7 +78,7 @@ async function fetchTo(url, local) {
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
 let ipns;
 if (!result.Keys.filter((a) => a.Name === uuid)[0]) {
-  ipns = await ipfscmd("key", "gen", "--type=rsa", "--size=2048", uuid);
+  ipns = await ipfscmd("key", "gen", uuid);
 } else {
   ipns = result.Keys.filter((a) => a.Name === uuid)[0].Id;
 }
