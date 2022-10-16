@@ -5,9 +5,9 @@ import nunjucks from "https://deno.land/x/nunjucks@3.2.3/mod.js";
 import moment from "https://deno.land/x/momentjs@2.29.1-deno/mod.ts";
 import { resize } from "https://deno.land/x/deno_image/mod.ts";
 import { writableStreamFromWriter } from "https://deno.land/std@0.159.0/streams/mod.ts";
-// let moment: moment.Moment = moment();
 const { generate } = v5;
 import {
+  existsSync,
   ensureDir,
   copySync,
 } from "https://deno.land/std@0.159.0/fs/mod.ts?s=ensureDir";
@@ -100,10 +100,10 @@ const planet = {
         await generate(NAMESPACE_URL, new TextEncoder().encode(e.id))
       ).toUpperCase();
       await ensureDir(join(uuid, id));
-      await fetchTo(
-        e.attachments[0].url,
-        join(uuid, id, basename(e.attachments[0].url))
-      );
+      const local = join(uuid, id, basename(e.attachments[0].url));
+      if (!existsSync(local)) {
+        await fetchTo(e.attachments[0].url, local);
+      }
       return {
         id,
         title: e.title.value,
@@ -158,3 +158,7 @@ for (let article of planet.articles) {
   });
   await Deno.writeTextFile(join(uuid, article.id, "index.html"), html);
 }
+
+const cid = await ipfscmd("add", "-r", uuid, "--cid-version=1", "--quieter");
+await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
+console.log(`done to ${planet.ipns}`);
