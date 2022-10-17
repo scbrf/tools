@@ -26,10 +26,14 @@ const TEMPLATE_URL = "https://github.com/scbrf/tools/raw/main/template.zip";
 const url = Deno.args[0];
 const target_root = Deno.args[1] || ".";
 
+console.log("Podcast to Planet convert is running ...");
+
 try {
-  Deno.statSync(join(target_root, "template"));
+  const info = Deno.statSync(join(target_root, "template"));
+  console.log(info);
 } catch (_) {
-  await unZipFromURL(TEMPLATE_URL, target_root);
+  const result = await unZipFromURL(TEMPLATE_URL, target_root);
+  console.log("unzip resource return", result);
 }
 
 const response = await fetch(url);
