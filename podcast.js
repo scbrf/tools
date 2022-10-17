@@ -7,7 +7,6 @@ import { resize } from "https://deno.land/x/deno_image@0.0.4/mod.ts";
 import { writableStreamFromWriter } from "https://deno.land/std@0.159.0/streams/mod.ts";
 const { generate } = v5;
 import {
-  existsSync,
   ensureDir,
   copySync,
 } from "https://deno.land/std@0.159.0/fs/mod.ts?s=ensureDir";
@@ -15,22 +14,32 @@ import {
   join,
   basename,
 } from "https://deno.land/std@0.159.0/path/mod.ts?s=joinGlobs";
+import { unZipFromURL } from "https://deno.land/x/zip@v1.1.0/unzip.ts?s=unZipFromURL";
 
 const NAMESPACE_URL = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
+const TEMPLATE_URL = "https://github.com/scbrf/tools/raw/main/template.zip";
 
 /**
  * Maintain a planet based on and itunes podcast RSS link
  */
 
 const url = Deno.args[0];
+const target_root = Deno.args[1] || ".";
+
+try {
+  Deno.statSync(join(target_root, "template"));
+} catch (_) {
+  await unZipFromURL(TEMPLATE_URL, target_root);
+}
+
 const response = await fetch(url);
 const xml = await response.text();
 const feed = await parseFeed(xml);
 const uuid = (
   await generate(NAMESPACE_URL, new TextEncoder().encode(feed.id))
 ).toUpperCase();
-
 const ipfsExe = "ipfs";
+
 async function ipfscmd() {
   const p = Deno.run({
     cmd: [ipfsExe, ...arguments],
@@ -67,12 +76,29 @@ function getEnv() {
 }
 
 async function fetchTo(url, local) {
-  // const fileResponse = await fetch(url);
-  // if (fileResponse.body) {
-  //   const file = await Deno.open(local, { write: true, create: true });
-  //   const writableStream = writableStreamFromWriter(file);
-  //   await fileResponse.body.pipeTo(writableStream);
-  // }
+  const MaxRetryTimes = 3;
+  for (let i = 0; i < MaxRetryTimes; i++) {
+    const fileResponse = await fetch(url);
+    if (fileResponse.body) {
+      const totalBytes = fileResponse.headers.get("Content-Length");
+      const file = await Deno.open(local, { write: true, create: true });
+      const writableStream = writableStreamFromWriter(file);
+      await fileResponse.body.pipeTo(writableStream);
+      try {
+        const info = Deno.statSync(local);
+        if (info.size != totalBytes) {
+          console.log(
+            `fetch size mismatch ${local} want: ${totalBytes} got ${info.size}`
+          );
+          continue;
+        }
+        return true;
+      } catch (_) {
+        continue;
+      }
+    }
+  }
+  console.log(`fetch fail ${local} after ${MaxRetryTimes} retries!`);
 }
 
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
