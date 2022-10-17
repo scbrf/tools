@@ -1,9 +1,9 @@
-import { parseFeed } from "https://deno.land/x/rss/mod.ts";
+import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts";
 import { v5 } from "https://deno.land/std@0.159.0/uuid/mod.ts?s=v5.generate";
 import { Marked } from "https://deno.land/x/markdown@v2.0.0/mod.ts";
 import nunjucks from "https://deno.land/x/nunjucks@3.2.3/mod.js";
 import moment from "https://deno.land/x/momentjs@2.29.1-deno/mod.ts";
-import { resize } from "https://deno.land/x/deno_image/mod.ts";
+import { resize } from "https://deno.land/x/deno_image@0.0.4/mod.ts";
 import { writableStreamFromWriter } from "https://deno.land/std@0.159.0/streams/mod.ts";
 const { generate } = v5;
 import {
@@ -47,8 +47,8 @@ function timeIntervalSinceReferenceDate(v) {
   return (new Date(v).getTime() - ReferenceDate) / 1000.0;
 }
 
-function getEnv(planet) {
-  var env = new nunjucks.Environment(
+function getEnv() {
+  const env = new nunjucks.Environment(
     new nunjucks.FileSystemLoader(join("plain", "templates")),
     {
       autoescape: false,
