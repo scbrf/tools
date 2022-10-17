@@ -61,7 +61,7 @@ function timeIntervalSinceReferenceDate(v) {
 
 function getEnv() {
   const env = new nunjucks.Environment(
-    new nunjucks.FileSystemLoader(join("template", "templates")),
+    new nunjucks.FileSystemLoader(join(target_root, "template", "templates")),
     {
       autoescape: false,
     }
@@ -126,7 +126,7 @@ if (!result.Keys.filter((a) => a.Name === uuid)[0]) {
 
 // console.log(JSON.stringify(feed));
 
-await ensureDir(uuid);
+await ensureDir(join(target_root, uuid));
 const planet = {
   about: feed.description,
   created: timeIntervalSinceReferenceDate(feed.created),
@@ -140,8 +140,8 @@ const planet = {
       const id = (
         await generate(NAMESPACE_URL, new TextEncoder().encode(e.id))
       ).toUpperCase();
-      await ensureDir(join(uuid, id));
-      const local = join(uuid, id, basename(e.attachments[0].url));
+      await ensureDir(join(target_root, uuid, id));
+      const local = join(target_root, uuid, id, basename(e.attachments[0].url));
       await fetchTo(e.attachments[0].url, local);
       return {
         id,
@@ -157,10 +157,17 @@ const planet = {
     })
   ),
 };
-await Deno.writeTextFile(join(uuid, "planet.json"), JSON.stringify(planet));
-await copySync(join("plain", "assets"), join(uuid, "assets"), {
-  overwrite: true,
-});
+await Deno.writeTextFile(
+  join(target_root, uuid, "planet.json"),
+  JSON.stringify(planet)
+);
+await copySync(
+  join(target_root, "template", "assets"),
+  join(target_root, uuid, "assets"),
+  {
+    overwrite: true,
+  }
+);
 
 const pageAboutHTML = Marked.parse(planet.about);
 const html = getEnv(planet).render("index.html", {
@@ -171,14 +178,17 @@ const html = getEnv(planet).render("index.html", {
   page_description_html: pageAboutHTML.content,
   build_timestamp: new Date().getTime(),
 });
-await Deno.writeTextFile(join(uuid, "index.html"), html);
-await fetchTo(feed.image.url, join(uuid, "avatar.png"));
-const img = await resize(Deno.readFileSync(join(uuid, "avatar.png")), {
-  width: 256,
-  height: 256,
-});
+await Deno.writeTextFile(join(target_root, uuid, "index.html"), html);
+await fetchTo(feed.image.url, join(target_root, uuid, "avatar.png"));
+const img = await resize(
+  Deno.readFileSync(join(target_root, uuid, "avatar.png")),
+  {
+    width: 256,
+    height: 256,
+  }
+);
 
-Deno.writeFileSync(join(uuid, "avatar.png"), img);
+Deno.writeFileSync(join(target_root, uuid, "avatar.png"), img);
 
 for (const article of planet.articles) {
   const content_html = Marked.parse(article.content);
@@ -195,9 +205,18 @@ for (const article of planet.articles) {
     content_html: content_html.content,
     build_timestamp: new Date().getTime(),
   });
-  await Deno.writeTextFile(join(uuid, article.id, "index.html"), html);
+  await Deno.writeTextFile(
+    join(target_root, uuid, article.id, "index.html"),
+    html
+  );
 }
 
-const cid = await ipfscmd("add", "-r", uuid, "--cid-version=1", "--quieter");
+const cid = await ipfscmd(
+  "add",
+  "-r",
+  join(target_root, uuid),
+  "--cid-version=1",
+  "--quieter"
+);
 await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
 console.log(`done to ${planet.ipns}`);
