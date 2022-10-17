@@ -174,6 +174,7 @@ const html = getEnv(planet).render("index.html", {
   assets_prefix: "./",
   page_title: planet.name,
   has_avatar: true,
+  articles,
   page_description: pageAboutHTML.content,
   page_description_html: pageAboutHTML.content,
   build_timestamp: new Date().getTime(),
