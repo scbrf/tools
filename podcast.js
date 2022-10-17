@@ -67,12 +67,12 @@ function getEnv() {
 }
 
 async function fetchTo(url, local) {
-  const fileResponse = await fetch(url);
-  if (fileResponse.body) {
-    const file = await Deno.open(local, { write: true, create: true });
-    const writableStream = writableStreamFromWriter(file);
-    await fileResponse.body.pipeTo(writableStream);
-  }
+  // const fileResponse = await fetch(url);
+  // if (fileResponse.body) {
+  //   const file = await Deno.open(local, { write: true, create: true });
+  //   const writableStream = writableStreamFromWriter(file);
+  //   await fileResponse.body.pipeTo(writableStream);
+  // }
 }
 
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
@@ -141,7 +141,7 @@ const img = await resize(Deno.readFileSync(join(uuid, "avatar.png")), {
 
 Deno.writeFileSync(join(uuid, "avatar.png"), img);
 
-for (let article of planet.articles) {
+for (const article of planet.articles) {
   const content_html = Marked.parse(article.content);
   const html = getEnv(planet).render("blog.html", {
     planet,
