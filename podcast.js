@@ -29,8 +29,7 @@ const target_root = Deno.args[1] || ".";
 console.log("Podcast to Planet convert is running ...");
 
 try {
-  const info = Deno.statSync(join(target_root, "template"));
-  console.log(info);
+  Deno.statSync(join(target_root, "template"));
 } catch (_) {
   const result = await unZipFromURL(TEMPLATE_URL, target_root);
   console.log("unzip resource return", result);
@@ -62,7 +61,7 @@ function timeIntervalSinceReferenceDate(v) {
 
 function getEnv() {
   const env = new nunjucks.Environment(
-    new nunjucks.FileSystemLoader(join("plain", "templates")),
+    new nunjucks.FileSystemLoader(join("template", "templates")),
     {
       autoescape: false,
     }
