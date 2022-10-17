@@ -54,9 +54,13 @@ async function ipfscmd() {
   return new TextDecoder().decode(await p.output()).trim();
 }
 
+const ReferenceDate = new Date("2001-01-01").getTime();
 function timeIntervalSinceReferenceDate(v) {
-  const ReferenceDate = new Date("2001-01-01").getTime();
   return (new Date(v).getTime() - ReferenceDate) / 1000.0;
+}
+
+function timeFromReferenceDate(v) {
+  return Math.round(v * 1000 + ReferenceDate);
 }
 
 function getEnv() {
@@ -70,10 +74,12 @@ function getEnv() {
     return str;
   });
   env.addFilter("formatDate", function (str) {
-    return moment(parseFloat(str)).format("MMM D,YYYY [at] h:mm:ss A");
+    return moment(timeFromReferenceDate(parseFloat(str))).format(
+      "MMM D,YYYY [at] h:mm:ss A"
+    );
   });
   env.addFilter("ymd", function (str) {
-    return moment(parseFloat(str)).format("YYYY-MM-DD");
+    return moment(timeFromReferenceDate(parseFloat(str))).format("YYYY-MM-DD");
   });
   return env;
 }
