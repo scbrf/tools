@@ -80,11 +80,22 @@ function getEnv() {
 }
 
 async function fetchTo(url, local) {
+  const head = await fetch(url, { method: "HEAD" });
+  const size = head.headers.get("content-length");
+  try {
+    const info = Deno.statSync(local);
+    if (info.size == size) {
+      console.log(`already there,skip download ${local}`);
+    }
+    return true;
+  } catch (_) {
+    console.log(`not exist ${local}, do download ...`);
+  }
   const MaxRetryTimes = 3;
   for (let i = 0; i < MaxRetryTimes; i++) {
     const fileResponse = await fetch(url);
     if (fileResponse.body) {
-      const totalBytes = fileResponse.headers.get("Content-Length");
+      const totalBytes = fileResponse.headers.get("content-length");
       const file = await Deno.open(local, { write: true, create: true });
       const writableStream = writableStreamFromWriter(file);
       await fileResponse.body.pipeTo(writableStream);
@@ -96,6 +107,7 @@ async function fetchTo(url, local) {
           );
           continue;
         }
+        console.log(`donwload done succ ${local}!`);
         return true;
       } catch (_) {
         continue;
@@ -131,9 +143,7 @@ const planet = {
       ).toUpperCase();
       await ensureDir(join(uuid, id));
       const local = join(uuid, id, basename(e.attachments[0].url));
-      if (!existsSync(local)) {
-        await fetchTo(e.attachments[0].url, local);
-      }
+      await fetchTo(e.attachments[0].url, local);
       return {
         id,
         title: e.title.value,
