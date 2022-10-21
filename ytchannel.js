@@ -82,7 +82,7 @@ function getEnv() {
 async function ytDown(url, local) {
   try {
     Deno.statSync(local);
-    console.log(`local file ${local} not exists return!`);
+    console.log(`local file ${local} exists return!`);
     return;
   } catch {
     console.log(`local file ${local} not exists!`);
