@@ -125,7 +125,9 @@ const planet = {
       return {
         id,
         title: e.title.value,
-        content: e["media:group"]["media:description"].value,
+        content: e["media:group"]["media:description"]
+          ? e["media:group"]["media:description"].value
+          : "",
         attachments: [],
         hasVideo: true,
         hasAudio: false,
