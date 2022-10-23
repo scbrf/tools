@@ -191,4 +191,4 @@ const cid = await ipfscmd(
   "--quieter"
 );
 await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
-console.log(`done to ${planet.ipns}`);
+console.log(`done to ${planet.ipns} cid is ${cid}`);
