@@ -95,7 +95,7 @@ async function ytDown(url, local) {
     stdin: "null",
   });
   const result = await p.status();
-  console.log(`file ${local} download result: ${result}!`);
+  console.log(`file ${local} download result: ${JSON.stringify(result)}!`);
 }
 
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
