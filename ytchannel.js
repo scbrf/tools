@@ -87,14 +87,15 @@ async function ytDown(url, local) {
   } catch {
     console.log(`local file ${local} not exists!`);
   }
+  console.log(`download ${local} from ${url} ...`);
   const p = Deno.run({
     cmd: ["yt-dlp", url, "-o", local, "-f", "mp4"],
     stdout: "piped",
     stderr: "piped",
     stdin: "null",
   });
-  await p.status();
-  console.log(`file ${local} download succ!`);
+  const result = await p.status();
+  console.log(`file ${local} download result: ${result}!`);
 }
 
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
