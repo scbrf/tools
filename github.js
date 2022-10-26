@@ -60,8 +60,32 @@ for (const repo of repos) {
       id,
       basename(asset.browser_download_url)
     );
-    await fetchTo(asset.browser_download_url, local);
+    if (await fetchTo(asset.browser_download_url, local)) {
+      if (local.endsWith(".ipa")) {
+        const ipaInfo = await run(
+          "npx",
+          "app-info-parser",
+          "-f",
+          local,
+          "-o",
+          "/dev/stdout"
+        );
+        const ipa = JSON.parse(ipaInfo);
+        release.ipa = ipa;
+      }
+    }
   }
+}
+
+async function run() {
+  const p = Deno.run({
+    cmd: arguments,
+    stdout: "piped",
+    stderr: "piped",
+    stdin: "null",
+  });
+  await p.status();
+  return new TextDecoder().decode(await p.output()).trim();
 }
 
 async function ipfscmd() {
@@ -168,7 +192,10 @@ const planet = {
     hasVideo: false,
     hasAudio: false,
     author: e.repo,
-    version: e.tag_name,
+    version: e.ipa ? e.ipa.CFBundleShortVersionString : "unknown",
+    bundleid: e.ipa ? e.ipa.CFBundleIdentifier : "unknown",
+    bundlename: e.ipa ? e.ipa.CFBundleDisplayName : "unknown",
+    icon: e.ipa ? e.ipa.icon : "",
     created: timeIntervalSinceReferenceDate(e.published_at),
     link: `/${e.id}/`,
   })),
