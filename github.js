@@ -45,12 +45,13 @@ for (const repo of repos) {
   const json = await (
     await fetch(`https://api.github.com/repos/${repo}/releases`)
   ).json();
+  const release = json[0];
   const id = (
-    await generate(NAMESPACE_URL, new TextEncoder().encode(repo))
+    await generate(NAMESPACE_URL, new TextEncoder().encode(release.node_id))
   ).toUpperCase();
   await ensureDir(join(target_root, uuid, id));
-  const release = json[0];
   release.id = id;
+  release.repo = repo;
   releases.push(release);
   for (const asset of release.assets) {
     const local = join(
@@ -161,13 +162,15 @@ const planet = {
   updated: timeIntervalSinceReferenceDate("2022-10-17"),
   articles: releases.map((e) => ({
     id: e.id,
-    title: e.name,
+    title: `${e.repo} ${e.name}`,
     content: e.body,
     attachments: e.assets.map((a) => basename(a.browser_download_url)),
     hasVideo: false,
     hasAudio: false,
+    author: e.repo,
+    version: e.tag_name,
     created: timeIntervalSinceReferenceDate(e.published_at),
-    link: `/${id}/`,
+    link: `/${e.id}/`,
   })),
 };
 await Deno.writeTextFile(
