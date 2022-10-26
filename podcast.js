@@ -1,3 +1,7 @@
+/**
+ * Build Planet from an itunes Podcast rss url
+ */
+
 import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts";
 import { v5 } from "https://deno.land/std@0.159.0/uuid/mod.ts?s=v5.generate";
 import { Marked } from "https://deno.land/x/markdown@v2.0.0/mod.ts";

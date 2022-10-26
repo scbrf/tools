@@ -1,8 +1,8 @@
 /**
- * Build Planet from an Youtube channel rss url
+ * Build Planet from a github repo which containers latest release file
+ * and has an altstore channel file
  */
 
-import { parseFeed } from "https://deno.land/x/rss@0.5.6/mod.ts";
 import { v5 } from "https://deno.land/std@0.159.0/uuid/mod.ts?s=v5.generate";
 import { Marked } from "https://deno.land/x/markdown@v2.0.0/mod.ts";
 import nunjucks from "https://deno.land/x/nunjucks@3.2.3/mod.js";
@@ -14,6 +14,8 @@ import {
 } from "https://deno.land/std@0.159.0/fs/mod.ts?s=ensureDir";
 import { join } from "https://deno.land/std@0.159.0/path/mod.ts?s=joinGlobs";
 import { unZipFromURL } from "https://deno.land/x/zip@v1.1.0/unzip.ts?s=unZipFromURL";
+import { basename } from "https://deno.land/std@0.97.0/path/win32.ts";
+import { writableStreamFromWriter } from "https://deno.land/std@0.159.0/streams/mod.ts";
 
 const NAMESPACE_URL = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 const TEMPLATE_URL = "https://github.com/scbrf/tools/raw/main/template.zip";
@@ -22,10 +24,10 @@ const TEMPLATE_URL = "https://github.com/scbrf/tools/raw/main/template.zip";
  * Maintain a planet based on and itunes podcast RSS link
  */
 
-const url = Deno.args[0];
-const target_root = Deno.args[1] || ".";
+const repos = Deno.args.slice(0, -1);
+const target_root = Deno.args[Deno.args.length - 1] || ".";
 
-console.log("Youtube channel to Planet convert is running ...");
+console.log("github release to Planet convert is running ...");
 
 try {
   Deno.statSync(join(target_root, "template"));
@@ -33,14 +35,33 @@ try {
   const result = await unZipFromURL(TEMPLATE_URL, target_root);
   console.log("unzip resource return", result);
 }
-
-const response = await fetch(url);
-const xml = await response.text();
-const feed = await parseFeed(xml);
 const uuid = (
-  await generate(NAMESPACE_URL, new TextEncoder().encode(feed.id))
+  await generate(NAMESPACE_URL, new TextEncoder().encode(repos.join(":")))
 ).toUpperCase();
 const ipfsExe = "ipfs";
+
+const releases = [];
+for (const repo of repos) {
+  const json = await (
+    await fetch(`https://api.github.com/repos/${repo}/releases`)
+  ).json();
+  const id = (
+    await generate(NAMESPACE_URL, new TextEncoder().encode(repo))
+  ).toUpperCase();
+  await ensureDir(join(target_root, uuid, id));
+  const release = json[0];
+  release.id = id;
+  releases.push(release);
+  for (const asset of release.assets) {
+    const local = join(
+      target_root,
+      uuid,
+      id,
+      basename(asset.browser_download_url)
+    );
+    await fetchTo(asset.browser_download_url, local);
+  }
+}
 
 async function ipfscmd() {
   const p = Deno.run({
@@ -83,23 +104,42 @@ function getEnv() {
   return env;
 }
 
-async function ytDown(url, local) {
+async function fetchTo(url, local) {
+  const head = await fetch(url, { method: "HEAD" });
+  const size = head.headers.get("content-length");
   try {
-    Deno.statSync(local);
-    console.log(`local file ${local} exists return!`);
-    return;
-  } catch {
-    console.log(`local file ${local} not exists!`);
+    const info = Deno.statSync(local);
+    if (info.size == size) {
+      console.log(`already there,skip download ${local}`);
+    }
+    return true;
+  } catch (_) {
+    console.log(`not exist ${local}, do download ...`);
   }
-  console.log(`download ${local} from ${url} ...`);
-  const p = Deno.run({
-    cmd: ["yt-dlp", url, "-o", local, "-f", "mp4"],
-    stdout: "piped",
-    stderr: "piped",
-    stdin: "null",
-  });
-  const result = await p.status();
-  console.log(`file ${local} download result: ${JSON.stringify(result)}!`);
+  const MaxRetryTimes = 3;
+  for (let i = 0; i < MaxRetryTimes; i++) {
+    const fileResponse = await fetch(url);
+    if (fileResponse.body) {
+      const totalBytes = fileResponse.headers.get("content-length");
+      const file = await Deno.open(local, { write: true, create: true });
+      const writableStream = writableStreamFromWriter(file);
+      await fileResponse.body.pipeTo(writableStream);
+      try {
+        const info = Deno.statSync(local);
+        if (info.size != totalBytes) {
+          console.log(
+            `fetch size mismatch ${local} want: ${totalBytes} got ${info.size}`
+          );
+          continue;
+        }
+        console.log(`donwload done succ ${local}!`);
+        return true;
+      } catch (_) {
+        continue;
+      }
+    }
+  }
+  console.log(`fetch fail ${local} after ${MaxRetryTimes} retries!`);
 }
 
 const result = JSON.parse(await ipfscmd("key", "list", "--encoding=json"));
@@ -112,36 +152,23 @@ if (!result.Keys.filter((a) => a.Name === uuid)[0]) {
 
 await ensureDir(join(target_root, uuid));
 const planet = {
-  about: feed.title.value,
+  about: `Auto genurated by planetbot!`,
   created: timeIntervalSinceReferenceDate("2022-10-17"),
   id: uuid,
   ipns,
-  name: feed.title.value,
+  name: `Releases for ${repos.join(" ")}`,
   templateName: "Plain",
   updated: timeIntervalSinceReferenceDate("2022-10-17"),
-  articles: await Promise.all(
-    feed.entries.map(async (e) => {
-      const id = (
-        await generate(NAMESPACE_URL, new TextEncoder().encode(e.id))
-      ).toUpperCase();
-      await ensureDir(join(target_root, uuid, id));
-      const local = join(target_root, uuid, id, "video.mp4");
-      await ytDown(e.links[0].href, local);
-      return {
-        id,
-        title: e.title.value,
-        content: e["media:group"]["media:description"]
-          ? e["media:group"]["media:description"].value
-          : "",
-        attachments: [],
-        hasVideo: true,
-        hasAudio: false,
-        videoFilename: "video.mp4",
-        created: timeIntervalSinceReferenceDate(e.published),
-        link: `/${id}/`,
-      };
-    })
-  ),
+  articles: releases.map((e) => ({
+    id: e.id,
+    title: e.name,
+    content: e.body,
+    attachments: e.assets.map((a) => basename(a.browser_download_url)),
+    hasVideo: false,
+    hasAudio: false,
+    created: timeIntervalSinceReferenceDate(e.published_at),
+    link: `/${id}/`,
+  })),
 };
 await Deno.writeTextFile(
   join(target_root, uuid, "planet.json"),
