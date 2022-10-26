@@ -42,6 +42,9 @@ const ipfsExe = "ipfs";
 
 const releases = [];
 for (const repo of repos) {
+  const main = await await (
+    await fetch(`https://api.github.com/repos/${repo}`)
+  ).json();
   const json = await (
     await fetch(`https://api.github.com/repos/${repo}/releases`)
   ).json();
@@ -74,6 +77,7 @@ for (const repo of repos) {
         release.ipa = ipa;
         const file = await Deno.stat(local);
         release.ipa.size = file.size;
+        release.ipa.desc = main.description;
       }
     }
   }
@@ -199,6 +203,7 @@ const planet = {
     bundlename: e.ipa ? e.ipa.CFBundleDisplayName : "unknown",
     icon: e.ipa ? e.ipa.icon : "",
     ipaSize: e.ipa ? e.ipa.size : -1,
+    desc: e.ipa ? e.ipa.desc : "",
     created: timeIntervalSinceReferenceDate(e.published_at),
     link: `/${e.id}/`,
   })),
