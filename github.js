@@ -72,6 +72,8 @@ for (const repo of repos) {
         );
         const ipa = JSON.parse(ipaInfo);
         release.ipa = ipa;
+        const file = await Deno.stat(local);
+        release.ipa.size = file.size;
       }
     }
   }
@@ -196,6 +198,7 @@ const planet = {
     bundleid: e.ipa ? e.ipa.CFBundleIdentifier : "unknown",
     bundlename: e.ipa ? e.ipa.CFBundleDisplayName : "unknown",
     icon: e.ipa ? e.ipa.icon : "",
+    ipaSize: e.ipa ? e.ipa.size : -1,
     created: timeIntervalSinceReferenceDate(e.published_at),
     link: `/${e.id}/`,
   })),
