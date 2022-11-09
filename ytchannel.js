@@ -26,6 +26,7 @@ const url = Deno.args[0];
 const target_root = Deno.args[1] || ".";
 
 console.log("Youtube channel to Planet convert is running ...");
+let needKeep = [];
 
 try {
   Deno.statSync(join(target_root, "template"));
@@ -110,7 +111,8 @@ if (!result.Keys.filter((a) => a.Name === uuid)[0]) {
   ipns = result.Keys.filter((a) => a.Name === uuid)[0].Id;
 }
 
-await ensureDir(join(target_root, uuid));
+const planetRoot = join(target_root, uuid);
+await ensureDir(planetRoot);
 const planet = {
   about: feed.title.value,
   created: timeIntervalSinceReferenceDate("2022-10-17"),
@@ -124,8 +126,8 @@ const planet = {
       const id = (
         await generate(NAMESPACE_URL, new TextEncoder().encode(e.id))
       ).toUpperCase();
-      await ensureDir(join(target_root, uuid, id));
-      const local = join(target_root, uuid, id, "video.mp4");
+      await ensureDir(join(planetRoot, id));
+      const local = join(planetRoot, id, "video.mp4");
       await ytDown(e.links[0].href, local);
       return {
         id,
@@ -144,12 +146,12 @@ const planet = {
   ),
 };
 await Deno.writeTextFile(
-  join(target_root, uuid, "planet.json"),
+  join(planetRoot, "planet.json"),
   JSON.stringify(planet)
 );
 await copySync(
   join(target_root, "template", "assets"),
-  join(target_root, uuid, "assets"),
+  join(planetRoot, "assets"),
   {
     overwrite: true,
   }
@@ -165,9 +167,10 @@ const html = getEnv(planet).render("index.html", {
   page_description_html: pageAboutHTML.content,
   build_timestamp: new Date("2022-10-17").getTime(),
 });
-await Deno.writeTextFile(join(target_root, uuid, "index.html"), html);
+await Deno.writeTextFile(join(planetRoot, "index.html"), html);
 
 for (const article of planet.articles) {
+  needKeep.push(article.id);
   const content_html = Marked.parse(article.content);
   const html = getEnv(planet).render("blog.html", {
     planet,
@@ -182,10 +185,18 @@ for (const article of planet.articles) {
     content_html: content_html.content,
     build_timestamp: new Date("2022-10-17").getTime(),
   });
-  await Deno.writeTextFile(
-    join(target_root, uuid, article.id, "index.html"),
-    html
-  );
+  await Deno.writeTextFile(join(planetRoot, article.id, "index.html"), html);
+}
+
+needKeep = [...needKeep, "index.html", "assets", "planet.json", "avatar.png"];
+
+for await (const dirEntry of Deno.readDir(planetRoot)) {
+  if (dirEntry.name && needKeep.indexOf(dirEntry.name) < 0) {
+    console.log(`should delete unused entry ${dirEntry.name}`);
+    await Deno.remove(join(planetRoot, dirEntry.name), {
+      recursive: true,
+    });
+  }
 }
 
 const cid = await ipfscmd(
@@ -195,5 +206,10 @@ const cid = await ipfscmd(
   "--cid-version=1",
   "--quieter"
 );
-await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
-console.log(`done to ${planet.ipns} cid is ${cid}`);
+console.log(`cid ${cid} added to ipfs`);
+if (!Deno.env.get("SKIP_PUBLISH")) {
+  await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
+  console.log(`done to ${planet.ipns} cid is ${cid}`);
+} else {
+  console.log("skip publish!");
+}
