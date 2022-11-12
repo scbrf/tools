@@ -229,5 +229,10 @@ const cid = await ipfscmd(
   "--cid-version=1",
   "--quieter"
 );
-await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
-console.log(`done to ${planet.ipns} cid is ${cid}`);
+
+if (!Deno.env.get("SKIP_PUBLISH")) {
+  await ipfscmd("name", "publish", `--key=${planet.id}`, `/ipfs/${cid}`);
+  console.log(`done to ${planet.ipns} cid is ${cid}`);
+} else {
+  console.log("skip publish!");
+}
